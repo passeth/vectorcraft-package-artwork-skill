@@ -9,7 +9,7 @@ import zlib
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
 
 from layout_kit import break_lines, ean13_check_digit, ean13_pattern  # noqa: E402
-from tube_unwrap import TubeSpec, depth_for, ellipse_arc, unwrap_x  # noqa: E402
+from tube_unwrap import ConceptTube, TubeSpec, depth_for, ellipse_arc, unwrap_x  # noqa: E402
 from read_request import parse  # noqa: E402
 import pdf_text_dump  # noqa: E402
 import verify_print_pdf  # noqa: E402
@@ -46,6 +46,33 @@ class TubeUnwrap(unittest.TestCase):
         self.assertAlmostEqual(unwrap_x(20.0, 20.0, s.panel), s.panel, places=2)
         self.assertAlmostEqual(unwrap_x(1.0, 20.0, s.panel) - s.panel / 2, 1.0, places=2)   # true size at centre
         self.assertAlmostEqual(2 * ellipse_arc(20, 20, 3.14159265 / 2), s.panel, places=2)
+
+    def test_box_maps_each_row_on_a_tapering_tube(self):
+        s = TubeSpec(40, 150)
+        k, cx, height = 4.0, 200, 600                  # 4 px/mm, crimp at y = 0, shoulder at y = 600
+        t = ConceptTube.__new__(ConceptTube)           # no image: rows and pixels are set by hand
+        t.spec, t.k, t.y_top, t.y_bottom = s, k, 0, height
+        t.rows = {}
+        for y in range(height + 1):                    # visible half-width 31.4 mm (flat) -> 20 mm (round)
+            half_px = (s.panel / 2 + (20.0 - s.panel / 2) * y / height) * k
+            t.rows[y] = (cx - half_px, cx + half_px)
+        ink = (150, 100, 250, 500)                     # a pixel rectangle x0, y0, x1, y1
+
+        class Pixels:
+            def __getitem__(self, xy):
+                x, y = xy
+                inside = ink[0] <= x <= ink[2] and ink[1] <= y <= ink[3]
+                return (0, 0, 0) if inside else (255, 255, 255)
+
+        t.px = Pixels()
+        bx, by, bw, bh = t.box((100, 50, 300, 550), test=lambda c: c[0] < 128)
+        lefts = [t.to_film(ink[0], y)[0] for y in range(ink[1], ink[3] + 1)]
+        rights = [t.to_film(ink[2] + 1, y)[0] for y in range(ink[1], ink[3] + 1)]
+        self.assertAlmostEqual(bx, min(lefts), places=6)          # the narrow shoulder rows reach further out
+        self.assertAlmostEqual(bx + bw, max(rights), places=6)
+        self.assertLess(min(lefts), lefts[0] - 0.3)               # a corner-only box misses them (here ~0.47 mm)
+        self.assertAlmostEqual(by, 25.0, places=6)
+        self.assertAlmostEqual(bh, 100.25, places=6)
 
 
 class LineBreaks(unittest.TestCase):

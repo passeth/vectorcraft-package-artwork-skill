@@ -111,19 +111,21 @@ class ConceptTube:
                 (y - self.y_top) / (self.y_bottom - self.y_top) * self.spec.length)
 
     def box(self, px_box, test):
-        """Ink box [x, y, w, h] in film mm of the pixels passing test(rgb) inside px_box (x0, y0, x1, y1)."""
+        """Ink box [x, y, w, h] in film mm of the pixels passing test(rgb) inside px_box (x0, y0, x1, y1).
+        The horizontal mapping depends on each row's width and centre (the tube narrows from crimp to shoulder),
+        so every row's ink extent is mapped with its own row and the box spans their film-space extremes."""
         x0, y0, x1, y1 = px_box
-        xs, ys = [], []
+        film_x, ys = [], []
         for y in range(y0, y1 + 1):
-            for x in range(x0, x1 + 1):
-                if test(self.px[x, y]):
-                    xs.append(x)
-                    ys.append(y)
-        if not xs:
+            xs = [x for x in range(x0, x1 + 1) if test(self.px[x, y])]
+            if xs:
+                film_x += [self.to_film(min(xs), y)[0], self.to_film(max(xs) + 1, y)[0]]
+                ys.append(y)
+        if not ys:
             raise ValueError(f"no matching pixels in {px_box}")
-        a = self.to_film(min(xs), min(ys))
-        b = self.to_film(max(xs) + 1, max(ys) + 1)
-        return [a[0], a[1], b[0] - a[0], b[1] - a[1]]
+        top = self.to_film(x0, min(ys))[1]
+        bottom = self.to_film(x0, max(ys) + 1)[1]
+        return [min(film_x), top, max(film_x) - min(film_x), bottom - top]
 
     def report(self):
         """Shape check: width ratio shoulder/crimp vs the physical 2/pi, and implied length from the crimp width."""
