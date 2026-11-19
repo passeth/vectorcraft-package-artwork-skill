@@ -12,6 +12,7 @@
 |---|---|---|
 | **수정** | 부자재 문안수정 요청서(xlsx) + 원본 `.ai` | 폰트 교체, 객체 삭제·정렬, 문구 수정 → 수정본 `.ai`, 텍스트 아웃라인 인쇄용 PDF, 미리보기 PNG, 변경 보고서 |
 | **신규 제작** | 디자이너 시안 이미지(PNG) + 전성분 원문(docx) + 인쇄 규격 | 별색 인쇄용 벡터 파일(로고·아이콘 트레이스, 시안에 맞춘 문자, 원문과 대조한 전성분, EAN-13 생성) + 같은 결과물 세트 |
+| **생성 AI 시안 → 필름** | AI가 만든 목업 이미지 + 전성분 원문 + 용기 규격(예: 120ml Ø40 튜브) | 용기 형태를 역산해 시안을 펼친 필름으로 옮기고, 글자는 실제 서체로 다시 짜고, 시안에 없는 뒷면·표시사항은 전성분 근거 특장점과 함께 새로 짠 별색 필름 초안 |
 
 검증 장치가 함께 들어 있습니다.
 - 원본 PDF와 결과를 같은 방식으로 렌더링해 **바뀐 영역만 빨갛게 표시**
@@ -76,7 +77,8 @@ cp -R vectorcraft-package-artwork-skill/package-artwork-vectorcraft ~/.claude/sk
 | `scripts/pdf_text_dump.py` | 원본 PDF의 실제 문자 설정값(폰트·크기·자간·장평·위치) 읽기 |
 | `scripts/compare.py`, `render_pdf.swift` | 원본과 결과 비교 이미지, PDFKit 렌더 |
 | `scripts/verify_print_pdf.py` | 인쇄용 PDF 검사 (폰트·텍스트·별색·이미지·박스) |
-| `scripts/layout_kit.py` | 신규 제작용 도구: 시안 측정, 잉크 박스 맞춤 문자, 줄바꿈 유지 문단, 로고 트레이스, EAN-13 |
+| `scripts/layout_kit.py` | 신규 제작용 도구: 시안 측정, 잉크 박스 맞춤 문자, 줄바꿈 유지·자동 줄바꿈(금칙) 문단, 대형 압축 글자, 물결 배지, 가이드·자리 표시, 로고 트레이스, EAN-13 |
+| `scripts/tube_unwrap.py` | 튜브 목업 이미지를 펼친 필름 좌표로 변환 (크림프 납작 → 어깨 원형 단면 모델), 형태 점검 |
 | `tests/` | VectorCraft 없이 도는 테스트 (`python3 -m unittest discover -s tests`) |
 
 ## 꼭 알아둘 점
@@ -95,6 +97,7 @@ An agent skill (Claude Code and others) for **revising or building print-ready p
 
 - **Revision mode** applies a change request (xlsx) to an original `.ai`, such as a font swap, object removal, alignment or copy change.
 - **New mode** builds spot-colour vector artwork from a designer's PNG sheet, the official ingredient text and the print spec.
+- **AI concept → film** turns a generative-AI mockup into a flat spot-colour film draft: it unwraps the tube from its crimp-to-shoulder shape, re-sets the type in real fonts, and builds the missing back panel with claims grounded in the ingredient list.
 - Both modes produce a revised `.ai`, an outlined print PDF, a preview and a report.
 - Built-in checks compare renders against the original and confirm that the print PDF has no live fonts and keeps the original spot plates.
 

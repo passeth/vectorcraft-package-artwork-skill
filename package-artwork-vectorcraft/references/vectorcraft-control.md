@@ -50,3 +50,10 @@
 - `document.preflight`(프로덕션 프리플라이트)는 0.24.1에 없다. 대신 `text.missingFonts`, `document.find`의 overflow, `verify_print_pdf.py`를 쓴다.
 - `paragraph`의 "양끝 정렬, 마지막 줄 왼쪽"이 없다. 줄마다 문단을 나누고 마지막 줄만 왼쪽 정렬한다(`layout_kit.Doc.paragraph`).
 - 응답이 수백 KB일 수 있다(`engine.commands` ≈ 760KB, `document.inspect` 전체). 파일로 받는다(`--out`).
+- `layer.new {top:true}`는 새 레이어를 매번 맨 위에 쌓는다. 일찍 만든 가이드 레이어는 나중 레이어(바탕 등) 아래에 깔리므로 마지막에 `layer.move`로 올린다(`Doc.raise_layer`).
+  `document.inspect`의 `layers`는 위→아래 순서다(첫 항목이 맨 위).
+- PNG 내보내기(`document.export`)는 인쇄 안 함(`printable:false`) 레이어도 그린다(템플릿 레이어는 빠짐). PDF 내보내기는 기본으로 뺀다(`includeNonPrinting:true`로 포함).
+- 별색 스와치 라이브러리에 PANTONE이 없다(내장: Web Safe, Pastels 등). PANTONE 번호는 사람이 지정한다.
+- CMYK 문서에서 CMYK 색역 밖의 별색은 화면 값이 바뀌어 보인다(예: #B9A3E7 → #A692C4). 인쇄는 별색 판으로 나간다.
+- 0.24.1에는 `app.toast`(창 위 메시지)가 없다. 시연 캡션은 비인쇄 레이어의 글자로 보여준다.
+- 화면 확대: `ui.menu.invoke {command:"view.fitArtboard"}`(엔진 명령이 아니라 UI 명령).

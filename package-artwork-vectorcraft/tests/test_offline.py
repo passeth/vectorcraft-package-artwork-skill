@@ -8,7 +8,8 @@ import zlib
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
 
-from layout_kit import ean13_check_digit, ean13_pattern  # noqa: E402
+from layout_kit import break_lines, ean13_check_digit, ean13_pattern  # noqa: E402
+from tube_unwrap import TubeSpec, depth_for, ellipse_arc, unwrap_x  # noqa: E402
 from read_request import parse  # noqa: E402
 import pdf_text_dump  # noqa: E402
 import verify_print_pdf  # noqa: E402
@@ -24,6 +25,42 @@ class Ean13(unittest.TestCase):
     def test_bad_check_digit(self):
         with self.assertRaises(ValueError):
             ean13_pattern("4006381333932")
+
+
+class TubeUnwrap(unittest.TestCase):
+    def test_spec(self):
+        s = TubeSpec(40, 150)
+        self.assertAlmostEqual(s.flat_width, 125.6637, places=3)
+        self.assertAlmostEqual(s.panel, 62.8319, places=3)
+
+    def test_flat_row_is_linear(self):
+        s = TubeSpec(40, 150)
+        half = s.panel / 2                       # a flat row: visible width = panel
+        self.assertEqual(depth_for(half, s.panel), 0.0)
+        self.assertAlmostEqual(unwrap_x(-half, half, s.panel), 0.0, places=6)
+        self.assertAlmostEqual(unwrap_x(half / 2, half, s.panel), s.panel * 0.75, places=6)
+
+    def test_round_row_keeps_centre_scale_and_edges(self):
+        s = TubeSpec(40, 150)
+        self.assertAlmostEqual(depth_for(20.0, s.panel), 20.0, places=2)    # a circle of radius 20
+        self.assertAlmostEqual(unwrap_x(20.0, 20.0, s.panel), s.panel, places=2)
+        self.assertAlmostEqual(unwrap_x(1.0, 20.0, s.panel) - s.panel / 2, 1.0, places=2)   # true size at centre
+        self.assertAlmostEqual(2 * ellipse_arc(20, 20, 3.14159265 / 2), s.panel, places=2)
+
+
+class LineBreaks(unittest.TestCase):
+    def test_no_line_starts_with_punctuation(self):
+        text = "정제수, 글리세린, 미리스틱애씨드, 포타슘하이드록사이드, 라우릭애씨드, 팔미틱애씨드"
+        lines = break_lines(text, 11, len)
+        self.assertEqual("".join(lines).replace(" ", ""), text.replace(" ", ""))
+        for ln in lines[1:]:
+            self.assertNotIn(ln[0], ",.)·:;!?")
+
+    def test_breaks_at_space_only_near_the_end(self):
+        lines = break_lines("가나다라마 바사아자차카타파하", 9, len)
+        self.assertEqual(lines[0], "가나다라마")          # space within 3 chars of the end: break there
+        lines = break_lines("가나 다라마바사아자차카타파하", 9, len)
+        self.assertEqual(lines[0], "가나 다라마바사아")    # space too early: break mid-word
 
 
 def xlsx(path, cells):

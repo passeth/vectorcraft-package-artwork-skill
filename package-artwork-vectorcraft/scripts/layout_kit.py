@@ -277,6 +277,126 @@ class Doc:
                      "belowGs1Minimum": mm < 0.264}
 
 
+    # ------------------------------------------------------------------ added with the AI-concept pilot
+    def natural_width(self, text, font, size, hscale=100.0, tracking=-25, bold=()):
+        """Advance width (pt) of one line of point type (em box), used to break lines before setting them."""
+        t = cmd("text.create", {"x": 0, "y": 0, "text": text, "font": font, "style": "Regular", "size": size})["id"]
+        cmd("text.setStyle", {"ids": [t], "tracking": tracking})
+        if hscale != 100:
+            cmd("text.setFormat", {"ids": [t], "hScale": hscale})
+        for p in bold:
+            if text.startswith(p):
+                self.style_prefix(t, text, p)
+        w = cmd("document.inspect", {"ids": [t]})["nodes"][0]["bounds"]["width"]
+        cmd("edit.clear", {"ids": [t]})
+        return w
+
+    def paragraph_auto(self, text, target, font, size, leading, hscale=90.0, tracking=-25, bold=(),
+                       extra_lines=(), swatch=None, color=None):
+        """Justified paragraph with no designer line breaks: break by measured width (break_lines, with
+        line-start punctuation rules), then set it with paragraph() (last line left). extra_lines are appended
+        as their own last lines (e.g. "소비자 상담실: …"). target [x, y, w, _] in pt."""
+        x, y, w, _ = target
+        # natural_width styles a bold prefix only on the text that starts with it (the first line)
+        lines = break_lines(text, w - 1.5, lambda s: self.natural_width(s, font, size, hscale, tracking, bold))
+        lines += list(extra_lines)
+        last = [len(lines) - 1 - i for i in range(len(extra_lines) + 1)]
+        tid, info = self.paragraph(lines, target, font, size, leading, tracking, last, bold, swatch, color)
+        info["lineTexts"] = lines
+        return tid, info
+
+    def stretch_word(self, text, font, style, box, swatch=None, color=None, size=60, tracking=-10):
+        """Display type that fills box [x, y, w, h] (pt): size from the width at 100 %, then vertical scale to
+        the height. Keeps stems heavy and counters tight, like ultra-condensed poster type."""
+        x, y, w, h = box
+        tid = cmd("text.create", {"x": x, "y": y + h, "text": text, "font": font, "style": style, "size": size})["id"]
+        cmd("text.setStyle", {"ids": [tid], "tracking": tracking})
+        for _ in range(3):
+            b = self.ink_bounds(tid)
+            size *= w / b["width"]
+            cmd("text.setStyle", {"ids": [tid], "size": round(size, 3)})
+        vs = 100.0
+        for _ in range(3):
+            b = self.ink_bounds(tid)
+            vs *= h / b["height"]
+            cmd("text.setFormat", {"ids": [tid], "vScale": round(vs, 2)})
+        b = self.ink_bounds(tid)
+        cmd("object.move", {"ids": [tid], "dx": x - b["x"], "dy": y - b["y"]})
+        self.fill([tid], swatch, color)
+        return tid, {"size": round(size, 2), "vScale": round(vs, 1), "tracking": tracking}
+
+    def wavy_badge(self, cx, cy, radius, lobes=8, amplitude=0.07, phase=0.4, swatch=None, color=None, points=360):
+        """A sticker-style wavy circle as one closed path (cleaner than tracing a rendered sticker)."""
+        import math
+        pts = []
+        for i in range(points):
+            t = 2 * math.pi * i / points
+            r = radius * (1 + amplitude * math.sin(lobes * t + phase))
+            pts.append((cx + r * math.cos(t), cy + r * math.sin(t)))
+        d = "M " + " L ".join(f"{x:.3f} {y:.3f}" for x, y in pts) + " Z"
+        pid = cmd("path.create", {"d": d, "closed": True})["id"]
+        self.fill([pid], swatch, color)
+        return pid
+
+    def guide_line(self, x0, y0, x1, y1, color="#00a0e9", dash=(2, 1.5), weight=0.4):
+        gid = cmd("path.create", {"anchors": [{"x": x0, "y": y0}, {"x": x1, "y": y1}]})["id"]
+        cmd("paint.setFill", {"ids": [gid], "none": True})
+        cmd("paint.setStroke", {"ids": [gid], "color": color})
+        cmd("stroke.set", {"ids": [gid], "weight": weight, "dash": list(dash)})
+        return gid
+
+    def placeholder(self, box, label, font="Noto Sans CJK KR", color="#e4007f", size=4.2):
+        """Dashed box with a label for something still missing (barcode number, recycling mark…).
+        Put it on a non-printing guide layer."""
+        x, y, w, h = box
+        rid = cmd("shape.rectangle", {"x": x, "y": y, "width": w, "height": h})["id"]
+        cmd("paint.setFill", {"ids": [rid], "none": True})
+        cmd("paint.setStroke", {"ids": [rid], "color": color})
+        cmd("stroke.set", {"ids": [rid], "weight": 0.4, "dash": [1.5, 1.0]})
+        t = cmd("text.create", {"x": x + w / 2, "y": y + h / 2 - size * 0.4, "text": label, "font": font,
+                                "style": "Bold", "size": size, "justify": "center"})["id"]
+        self.fill([t], color=color)
+        return [rid, t]
+
+    def raise_layer(self, layer_id):
+        """Move a layer above all others (layer.new {top:true} stacks each new layer over the previous one,
+        so a guide layer made early ends up under the art)."""
+        top = cmd("document.inspect", {"depth": 0})["layers"][0]["id"]
+        if top != layer_id:
+            cmd("layer.move", {"id": layer_id, "target": top, "place": "above"})
+
+
+def break_lines(text, width, measure, no_start=",.)·:;!?", space_window=3):
+    """Greedy line breaks for justified Korean/Latin copy.
+
+    measure(s) -> advance width of s. Each line takes as many characters as fit; it breaks at a space only
+    when the space is within `space_window` characters of the end (else mid-word, as Korean label copy does,
+    which keeps justification gaps small), and a line never starts with a character in `no_start`
+    (that punctuation hangs at the end of the previous line instead).
+    """
+    lines, rest = [], text
+    while rest:
+        if measure(rest) <= width:
+            lines.append(rest)
+            break
+        lo, hi = 1, len(rest)
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            if measure(rest[:mid]) <= width:
+                lo = mid
+            else:
+                hi = mid - 1
+        cut = lo
+        sp = rest.rfind(" ", 0, cut + 1)
+        if sp > 0 and cut - sp - 1 <= space_window:      # at most `space_window` characters after the space
+            cut = sp + 1
+        while cut < len(rest) and rest[cut] in no_start:
+            cut += 1
+        lines.append(rest[:cut].rstrip())
+        rest = rest[cut:].lstrip()
+    return lines
+
+
 # ------------------------------------------------------------------------------------------------ barcode
 _L = ["0001101", "0011001", "0010011", "0111101", "0100011", "0110001", "0101111", "0111011", "0110111", "0001011"]
 _R = ["".join("1" if b == "0" else "0" for b in c) for c in _L]
