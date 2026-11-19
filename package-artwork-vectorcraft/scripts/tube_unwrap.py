@@ -112,8 +112,9 @@ class ConceptTube:
 
     def box(self, px_box, test):
         """Ink box [x, y, w, h] in film mm of the pixels passing test(rgb) inside px_box (x0, y0, x1, y1).
-        The horizontal mapping depends on each row's width and centre (the tube narrows from crimp to shoulder),
-        so every row's ink extent is mapped with its own row and the box spans their film-space extremes."""
+        The film is a rectangle, but in the image the tube looks wider at the flat crimp (pi*D/2) than at the round
+        shoulder (D), so pixels map to film mm differently on each row: every row's ink extent is mapped with its
+        own row's width and centre, and the box spans their film-space extremes."""
         x0, y0, x1, y1 = px_box
         film_x, ys = [], []
         for y in range(y0, y1 + 1):
