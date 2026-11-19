@@ -6,6 +6,13 @@
 
 > English summary at the bottom.
 
+## 시연 영상
+
+생성 AI 시안 이미지와 전성분, 용기 규격(120ml Ø40 원형 튜브)만으로 인쇄용 필름을 만드는 과정을 다시 재생한 화면 녹화입니다(약 2분 15초).
+에이전트가 VectorCraft를 직접 조작하고, 시트 왼쪽의 파란 글씨가 단계 설명입니다.
+
+https://github.com/user-attachments/assets/a77944ee-4477-456c-800d-1ad67228ffb5
+
 ## 할 수 있는 것
 
 | 모드 | 입력 | 결과 |
@@ -100,6 +107,8 @@ An agent skill (Claude Code and others) for **revising or building print-ready p
 - **AI concept → film** turns a generative-AI mockup into a flat spot-colour film draft: it unwraps the tube from its crimp-to-shoulder shape, re-sets the type in real fonts, and builds the missing back panel with claims grounded in the ingredient list.
 - Both modes produce a revised `.ai`, an outlined print PDF, a preview and a report.
 - Built-in checks compare renders against the original and confirm that the print PDF has no live fonts and keeps the original spot plates.
+
+A screen recording of the AI concept → film run is at the top of this page (about 2 min 15 s).
 
 Requires macOS, VectorCraft (tested with 0.24.1), Python 3 + Pillow and Xcode Command Line Tools. Outputs are drafts for designer review. Send printers the outlined PDF, because VectorCraft warns that the `.ai` editing data for other apps drops swatch links on type. The documentation is in Korean.
 
